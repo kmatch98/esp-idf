@@ -59,12 +59,12 @@ typedef struct {
     unsigned int hsync_front_porch; /*!< Horizontal front porch, number of PCLK between the end of active data and the next hsync */
     unsigned int vsync_pulse_width; /*!< Vertical sync width, unit: number of lines */
     unsigned int vsync_back_porch;  /*!< Vertical back porch, number of invalid lines between vsync and start of frame */
-    unsigned int vsync_front_porch; /*!< Vertical front porch, number of invalid lines between then end of frame and the next vsync */
+    unsigned int vsync_front_porch; /*!< Vertical front porch, number of invalid lines between the end of frame and the next vsync */
     struct {
         unsigned int hsync_idle_low: 1;  /*!< The hsync signal is low in IDLE state */
         unsigned int vsync_idle_low: 1;  /*!< The vsync signal is low in IDLE state */
         unsigned int de_idle_high: 1;    /*!< The de signal is high in IDLE state */
-        unsigned int pclk_active_neg: 1; /*!< Whether the display data is clocked out at the falling edge of PCLK */
+        unsigned int pclk_active_pos: 1; /*!< Whether the display data is clocked out on the rising edge of PCLK */
         unsigned int pclk_idle_high: 1;  /*!< The PCLK stays at high level in IDLE phase */
     } flags;
 } esp_lcd_rgb_timing_t;
@@ -86,11 +86,25 @@ typedef struct {
 typedef bool (*esp_lcd_rgb_panel_frame_trans_done_cb_t)(esp_lcd_panel_handle_t panel, esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
 
 /**
+ * @brief Prototype for function to re-fill a bounce buffer. Note this is called in ISR context.
+ *
+ * @param bounce_buf Bounce buffer to write data into
+ * @param pos_px How many pixels already were sent to the display this frame, in other words, at what pixel
+ *            the routine should start putting data into bounce_buf
+ * @param len_bytes Length, in bytes, of the bounce buffer. Routine should fill this length fully.
+ * @param user_ctx Opaque pointer that was passed as bounce_buffer_cb_user_ctx to esp_lcd_new_rgb_panel
+ * @return True if the callback woke up a higher-priority task, false otherwise.
+ */
+typedef bool (*esp_lcd_rgb_panel_bounce_buf_fill_cb_t)(void *bounce_buf, int pos_px, int len_bytes, void *user_ctx);
+
+/**
  * @brief LCD RGB panel configuration structure
  */
 typedef struct {
     lcd_clock_source_t clk_src;   /*!< Clock source for the RGB LCD peripheral */
     esp_lcd_rgb_timing_t timings; /*!< RGB timing parameters */
+    uint8_t *fb;                  /*!< Preallocated framebuffer, set NULL to allocate with new_rbg_panel */               
+    size_t fb_size;               /*!< Size of the preallocated framebuffer */
     size_t data_width;            /*!< Number of data lines */
     size_t sram_trans_align;      /*!< Alignment for framebuffer that allocated in SRAM */
     size_t psram_trans_align;     /*!< Alignment for framebuffer that allocated in PSRAM */
@@ -101,6 +115,9 @@ typedef struct {
     int data_gpio_nums[SOC_LCD_RGB_DATA_WIDTH]; /*!< GPIOs used for data lines */
     int disp_gpio_num; /*!< GPIO used for display control signal, set to -1 if it's not used */
     esp_lcd_rgb_panel_frame_trans_done_cb_t on_frame_trans_done; /*!< Callback invoked when one frame buffer has transferred done */
+    int bounce_buffer_size_px; /*< If not-zero, the driver uses a bounce buffer in internal memory to DMA from. Value is in pixels. */
+    esp_lcd_rgb_panel_bounce_buf_fill_cb_t on_bounce_empty; /*< If we use a bounce buffer, this function gets called to fill it rather than copying from the framebuffer */
+    void *bounce_buffer_cb_user_ctx; /*< Opaque parameter to pass to the on_bounce_empty function */
     void *user_ctx; /*!< User data which would be passed to on_frame_trans_done's user_ctx */
     struct {
         unsigned int disp_active_low: 1; /*!< If this flag is enabled, a low level of display control signal can turn the screen on; vice versa */
@@ -121,6 +138,7 @@ typedef struct {
  *          - ESP_OK                on success
  */
 esp_err_t esp_lcd_new_rgb_panel(const esp_lcd_rgb_panel_config_t *rgb_panel_config, esp_lcd_panel_handle_t *ret_panel);
+
 
 #endif // SOC_LCD_RGB_SUPPORTED
 
