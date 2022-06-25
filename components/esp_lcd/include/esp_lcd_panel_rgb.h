@@ -91,6 +91,8 @@ typedef bool (*esp_lcd_rgb_panel_frame_trans_done_cb_t)(esp_lcd_panel_handle_t p
 typedef struct {
     lcd_clock_source_t clk_src;   /*!< Clock source for the RGB LCD peripheral */
     esp_lcd_rgb_timing_t timings; /*!< RGB timing parameters */
+    uint8_t *fb;                  /*!< Preallocated framebuffer, set NULL to allocate with new_rbg_panel */               
+    size_t fb_size;               /*!< Size of the preallocated framebuffer */
     size_t data_width;            /*!< Number of data lines */
     size_t sram_trans_align;      /*!< Alignment for framebuffer that allocated in SRAM */
     size_t psram_trans_align;     /*!< Alignment for framebuffer that allocated in PSRAM */
@@ -101,6 +103,9 @@ typedef struct {
     int data_gpio_nums[SOC_LCD_RGB_DATA_WIDTH]; /*!< GPIOs used for data lines */
     int disp_gpio_num; /*!< GPIO used for display control signal, set to -1 if it's not used */
     esp_lcd_rgb_panel_frame_trans_done_cb_t on_frame_trans_done; /*!< Callback invoked when one frame buffer has transferred done */
+    int bounce_buffer_size_px; /*< If not-zero, the driver uses a bounce buffer in internal memory to DMA from. Value is in pixels. */
+    esp_lcd_rgb_panel_bounce_buf_fill_cb_t on_bounce_empty; /*< If we use a bounce buffer, this function gets called to fill it rather than copying from the framebuffer */
+    void *bounce_buffer_cb_user_ctx; /*< Opaque parameter to pass to the on_bounce_empty function */
     void *user_ctx; /*!< User data which would be passed to on_frame_trans_done's user_ctx */
     struct {
         unsigned int disp_active_low: 1; /*!< If this flag is enabled, a low level of display control signal can turn the screen on; vice versa */

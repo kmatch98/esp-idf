@@ -44,6 +44,12 @@ esp_err_t esp_lcd_panel_init(esp_lcd_panel_handle_t panel);
  */
 esp_err_t esp_lcd_panel_del(esp_lcd_panel_handle_t panel);
 
+uint8_t * rgb_panel_get_buffer(esp_lcd_panel_handle_t panel);
+
+size_t rgb_panel_get_buffer_size(esp_lcd_panel_handle_t panel);
+
+esp_err_t rgb_panel_flush_buffer(esp_lcd_panel_handle_t panel);
+
 /**
  * @brief Draw bitmap on LCD panel
  *
